@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Manajemen Pengetahuan SPBE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Modern Tech (Deep Blue, Teal, Slate Gray) -->
+    <!-- Application Structure Plan: Merombak total struktur navigasi dan konten berdasarkan 3 dokumen sumber (Laporan Evaluasi 2024, Pergub 27/2024, Peta Rencana 2025-2029). Navigasi atas disederhanakan untuk mencerminkan pilar utama SPBE. Halaman utama (Beranda) berfungsi sebagai dasbor ringkasan. Setiap halaman didedikasikan untuk satu dokumen sumber utama (Evaluasi, Peta Rencana, Tata Kelola) untuk kejelasan informasi. -->
+    <!-- Visualization & Content Choices: Grafik Indeks SPBE diperbarui dengan data Laporan Evaluasi 2024 (Nilai 3.58). Visualisasi Peta Rencana menggunakan kartu informatif untuk Visi, Misi, dan Tahapan. Prinsip SPBE dari Pergub disajikan dalam format grid yang mudah dibaca. Semua konten teks dan data disesuaikan untuk mencerminkan informasi dari dokumen yang disediakan, memastikan portal ini menjadi rangkuman eksekutif yang akurat. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            color: #334155;
+        }
+        .header-nav {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+        .header-scrolled {
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .nav-link.active {
+            color: #0d6efd;
+            font-weight: 600;
+            border-bottom-color: #0d6efd;
+        }
+        .nav-link {
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease-in-out;
+        }
+        .nav-link:hover {
+            color: #0d6efd;
+        }
+        .content-section {
+            padding-top: 100px;
+            margin-top: -80px;
+        }
+        .fade-in-section {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+        .fade-in-section.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 40vh; /* Shorter height on mobile */
+            max-height: 350px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 50vh; /* Taller height on desktop */
+                max-height: 450px;
+            }
+        }
+        .doc-card-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out;
+        }
+        .modern-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .modern-table th, .modern-table td {
+            padding: 0.75rem 1rem; /* Reduced padding for mobile */
+        }
+        @media (min-width: 768px) {
+            .modern-table th, .modern-table td {
+                padding: 1rem 1.5rem; /* Original padding for desktop */
+            }
+        }
+        .modern-table thead {
+            background-color: #1e293b;
+            color: #ffffff;
+            font-weight: 600;
+        }
+        .modern-table tbody tr {
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .modern-table tbody tr:nth-of-type(even) {
+            background-color: #f8fafc;
+        }
+        .modern-table tbody tr.clickable-indicator:hover {
+            background-color: #eef2ff;
+            cursor: pointer;
+        }
+        .modal-backdrop {
+            transition: opacity 0.3s ease;
+        }
+        .modal-panel {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        .level-path {
+            padding-left: 1rem;
+            border-left: 2px solid #e2e8f0;
+        }
+        .level-path .level-item {
+            position: relative;
+            padding-bottom: 1rem;
+        }
+        .level-path .level-item:not(:last-child) {
+             padding-bottom: 1.5rem;
+        }
+        .level-path .level-item::before {
+            content: '';
+            position: absolute;
+            left: -2.2rem;
+            top: 0.25rem;
+            width: 1.25rem;
+            height: 1.25rem;
+            border-radius: 9999px;
+            background-color: #cbd5e1;
+            border: 2px solid #f0f4f8;
+        }
+        .level-path .level-item.current::before {
+            background-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
+        }
+    </style>
+</head>
+<body class="antialiased flex flex-col min-h-screen">
+
+    <header id="main-header" class="header-nav">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center h-20">
+                <a href="#beranda" class="flex items-center gap-3">
+                    <div class="bg-blue-600 p-2.5 rounded-lg text-white">
+                        <i class="fa-solid fa-cubes-stacked fa-lg"></i>
+                    </div>
+                    <h1 class="text-xl font-extrabold text-slate-800">Portal SPBE</h1>
+                </a>
+                <nav class="hidden md:flex items-center space-x-6 lg:space-x-8">
+                    <a href="#beranda" class="nav-link text-slate-600 font-medium pb-2">Beranda</a>
+                    <a href="#hasil-evaluasi" class="nav-link text-slate-600 font-medium pb-2">Hasil Evaluasi</a>
+                    <a href="#strategi-kolaborasi" class="nav-link text-slate-600 font-medium pb-2">Arah Strategis</a>
+                    <a href="#peta-rencana" class="nav-link text-slate-600 font-medium pb-2">Peta Rencana</a>
+                    <a href="#pusat-unduhan" class="nav-link text-slate-600 font-medium pb-2">Pusat Unduhan</a>
+                </nav>
+                 <button id="menu-toggle" class="md:hidden p-2 text-slate-700">
+                    <i class="fa-solid fa-bars fa-lg"></i>
+                </button>
+            </div>
+        </div>
+        <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-gray-200">
+            <a href="#beranda" class="block py-3 px-4 text-slate-600 font-medium hover:bg-slate-50">Beranda</a>
+            <a href="#hasil-evaluasi" class="block py-3 px-4 text-slate-600 font-medium hover:bg-slate-50">Hasil Evaluasi</a>
+            <a href="#strategi-kolaborasi" class="block py-3 px-4 text-slate-600 font-medium hover:bg-slate-50">Arah Strategis</a>
+            <a href="#peta-rencana" class="block py-3 px-4 text-slate-600 font-medium hover:bg-slate-50">Peta Rencana</a>
+            <a href="#pusat-unduhan" class="block py-3 px-4 text-slate-600 font-medium hover:bg-slate-50">Pusat Unduhan</a>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-10 flex-grow">
+        
+        <section id="beranda" class="content-section text-center py-12 md:py-20">
+            <div class="fade-in-section">
+                <h2 class="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 mb-4">Dasbor Eksekutif SPBE</h2>
+                <p class="text-lg md:text-xl text-slate-600 max-w-3xl mx-auto mb-10">Ringkasan strategis dari hasil evaluasi, peta rencana, dan tata kelola Sistem Pemerintahan Berbasis Elektronik Provinsi Kalimantan Barat.</p>
+                
+                <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto text-left">
+                    <div class="bg-white p-8 rounded-2xl shadow-lg">
+                        <div class="flex items-center gap-4 mb-4">
+                            <i class="fa-solid fa-star fa-2x text-amber-500"></i>
+                            <div>
+                                <h3 class="text-3xl font-bold text-slate-800">3,58 / 5,00</h3>
+                                <p class="text-slate-600 font-semibold">Indeks SPBE Tahun 2024</p>
+                            </div>
+                        </div>
+                        <p class="text-slate-700">Pemerintah Provinsi Kalimantan Barat berhasil meraih predikat <b class="font-semibold">Sangat Baik</b> dalam penerapan SPBE, menunjukkan komitmen kuat terhadap transformasi digital.</p>
+                        <a href="#hasil-evaluasi" class="font-semibold text-blue-600 hover:underline mt-4 inline-block">Lihat Detail Evaluasi &rarr;</a>
+                    </div>
+                    <div class="bg-white p-8 rounded-2xl shadow-lg">
+                        <div class="flex items-center gap-4 mb-4">
+                            <i class="fa-solid fa-map-signs fa-2x text-emerald-500"></i>
+                            <div>
+                                <h3 class="text-3xl font-bold text-slate-800">2025-2029</h3>
+                                <p class="text-slate-600 font-semibold">Periode Peta Rencana SPBE</p>
+                            </div>
+                        </div>
+                        <p class="text-slate-700">Arah strategis untuk mewujudkan layanan publik berkinerja tinggi melalui pembangunan fondasi dan optimalisasi SPBE.</p>
+                        <a href="#peta-rencana" class="font-semibold text-blue-600 hover:underline mt-4 inline-block">Jelajahi Peta Rencana &rarr;</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section id="hasil-evaluasi" class="content-section fade-in-section">
+            <div class="bg-white p-6 md:p-12 rounded-2xl shadow-xl">
+                <h2 class="text-3xl md:text-4xl font-extrabold text-slate-900 mb-4 text-center">Hasil Evaluasi SPBE 2024</h2>
+                <p class="text-base md:text-lg text-slate-600 mb-12 md:mb-16 text-center max-w-3xl mx-auto">Ringkasan Laporan Hasil Evaluasi SPBE Provinsi Kalimantan Barat dengan predikat <b class="font-semibold">Sangat Baik</b> dan nilai indeks <b class="font-semibold">3,58</b>.</p>
+                
+                <div class="mb-12">
+                    <h3 class="text-2xl font-bold text-slate-800 mb-6 text-center">Rincian Nilai Indeks per Domain</h3>
+                    <div class="chart-container">
+                        <canvas id="indeksSpbeChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="mb-12">
+                    <h3 class="text-2xl font-bold text-slate-800 mb-6 text-center">Detail Nilai Tingkat Kematangan Indikator</h3>
+                    <p class="text-center text-slate-500 -mt-4 mb-6">Klik pada setiap baris untuk melihat detail dan cara peningkatan nilai.</p>
+                    <div class="overflow-x-auto">
+                        <table id="indicator-table" class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>No.</th>
+                                    <th>Indikator Penilaian</th>
+                                    <th>Nilai 2024</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Indicator rows will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="strategi-kolaborasi" class="content-section fade-in-section">
+            <div class="bg-white p-8 md:p-12 rounded-2xl shadow-xl">
+                <h2 class="text-4xl font-extrabold text-slate-900 mb-4 text-center">Arah Strategis & Kolaborasi</h2>
+                <p class="text-lg text-slate-600 mb-16 text-center max-w-3xl mx-auto">Panduan bagi Tim Koordinasi dan Pelaksana untuk mengambil langkah strategis berdasarkan hasil evaluasi dan Peta Rencana SPBE.</p>
+                
+                <div class="mb-16 searchable-item">
+                    <h3 class="text-3xl font-bold text-slate-800 mb-8 text-center">Fokus Peningkatan Indeks SPBE</h3>
+                    <div class="space-y-6">
+                        <div class="bg-red-50 p-6 rounded-xl border border-red-200">
+                            <h4 class="font-bold text-xl text-red-700 mb-2">Area Lemah: Manajemen SPBE (Nilai Domain: 1.00)</h4>
+                            <p class="text-slate-700 mb-4">Sebagian besar indikator manajemen (Risiko, Data, Aset, Pengetahuan, Perubahan, Layanan) masih berada di tingkat 1 (Rintisan). Ini menunjukkan pelaksanaan masih bersifat ad-hoc dan belum terencana.</p>
+                            <div class="bg-white p-4 rounded-lg">
+                                <h5 class="font-semibold text-slate-800">Inisiatif Strategis Terkait (Peta Rencana):</h5>
+                                <p class="text-slate-600 text-sm">Kegiatan 9, 10, 11, 12, 13, 14, 15, 16.</p>
+                                <h5 class="font-semibold text-slate-800 mt-2">Rencana Aksi Prioritas:</h5>
+                                <p class="text-slate-600 text-sm">Menyusun dan mensosialisasikan pedoman untuk setiap pilar manajemen, serta memasukkan program kerjanya ke dalam Peta Rencana SPBE OPD.</p>
+                            </div>
+                        </div>
+                        <div class="bg-amber-50 p-6 rounded-xl border border-amber-200">
+                            <h4 class="font-bold text-xl text-amber-700 mb-2">Area Lemah: Audit TIK (Nilai Domain: 1.00)</h4>
+                            <p class="text-slate-700 mb-4">Seluruh indikator Audit (Infrastruktur, Aplikasi, Keamanan) masih berada di tingkat 1 (Rintisan), menandakan belum adanya pelaksanaan audit yang terstruktur.</p>
+                            <div class="bg-white p-4 rounded-lg">
+                                <h5 class="font-semibold text-slate-800">Inisiatif Strategis Terkait (Peta Rencana):</h5>
+                                <p class="text-slate-600 text-sm">Kegiatan 24, 25, 26.</p>
+                                <h5 class="font-semibold text-slate-800 mt-2">Rencana Aksi Prioritas:</h5>
+                                <p class="text-slate-600 text-sm">Menyusun pedoman audit, membentuk Tim Auditor Internal, dan menjalin kolaborasi dengan auditor eksternal (BRIN/BSSN) untuk pelaksanaan audit berkala.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="searchable-item">
+                    <h3 class="text-3xl font-bold text-slate-800 mb-8 text-center">Pilar Kolaborasi SPBE</h3>
+                    <p class="text-lg text-slate-600 mb-8 text-center max-w-3xl mx-auto">Sesuai Pergub No. 27 Tahun 2024, kolaborasi adalah wadah pertukaran informasi dan peningkatan kapasitas untuk mempercepat kemajuan SPBE.</p>
+                    <div class="grid md:grid-cols-3 gap-6">
+                        <div class="bg-slate-50 p-6 rounded-xl text-center border border-slate-200">
+                            <i class="fa-solid fa-building-user fa-2x text-blue-500 mb-3"></i>
+                            <h5 class="font-bold text-lg text-slate-800">Antar Perangkat Daerah</h5>
+                            <p class="text-slate-600 text-sm">Sinergi dalam berbagi pakai data dan aplikasi untuk menghindari duplikasi dan inefisiensi anggaran.</p>
+                        </div>
+                        <div class="bg-slate-50 p-6 rounded-xl text-center border border-slate-200">
+                            <i class="fa-solid fa-landmark fa-2x text-green-500 mb-3"></i>
+                            <h5 class="font-bold text-lg text-slate-800">Dengan Pemerintah Pusat/Daerah Lain</h5>
+                            <p class="text-slate-600 text-sm">Adopsi aplikasi umum nasional dan replikasi inovasi dari daerah lain untuk percepatan layanan.</p>
+                        </div>
+                        <div class="bg-slate-50 p-6 rounded-xl text-center border border-slate-200">
+                            <i class="fa-solid fa-handshake fa-2x text-purple-500 mb-3"></i>
+                            <h5 class="font-bold text-lg text-slate-800">Dengan Non-Pemerintah</h5>
+                            <p class="text-slate-600 text-sm">Melibatkan akademisi, pelaku usaha, dan masyarakat untuk riset, kajian, dan peningkatan kompetensi teknis.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="peta-rencana" class="content-section fade-in-section">
+            <div class="bg-white p-8 md:p-12 rounded-2xl shadow-xl">
+                <h2 class="text-4xl font-extrabold text-slate-900 mb-4 text-center">Peta Rencana SPBE 2025-2029</h2>
+                <p class="text-lg text-slate-600 mb-16 text-center max-w-3xl mx-auto searchable-item">Arah strategis pembangunan dan pengembangan SPBE di Provinsi Kalimantan Barat untuk lima tahun mendatang, selaras dengan Visi SPBE Nasional.</p>
+                
+                <div class="text-center mb-12 searchable-item">
+                    <h3 class="text-3xl font-bold text-slate-800 mb-4">Visi SPBE</h3>
+                    <p class="text-xl text-slate-700 max-w-4xl mx-auto italic">"Terwujudnya sistem pemerintahan berbasis elektronik yang terpadu dan menyeluruh untuk mencapai birokrasi dan pelayanan publik yang berkinerja tinggi."</p>
+                </div>
+
+                <div class="searchable-item">
+                    <h3 class="text-3xl font-bold text-slate-800 mb-8 text-center">Linimasa Prioritas Tahap 1 (2025-2026)</h3>
+                    <div id="timeline-container" class="space-y-4">
+                        <!-- Timeline items will be injected here -->
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section id="pusat-unduhan" class="content-section fade-in-section">
+            <div class="bg-white p-8 md:p-12 rounded-2xl shadow-xl">
+                <h2 class="text-4xl font-extrabold text-slate-900 mb-4 text-center">Pusat Unduhan Peraturan</h2>
+                <p class="text-lg text-slate-600 mb-16 text-center max-w-3xl mx-auto">Akses dan unduh dokumen-dokumen hukum yang menjadi landasan pelaksanaan SPBE di tingkat nasional dan daerah.</p>
+                <div id="downloads-container" class="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                    <!-- Download items will be injected here -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-slate-800 text-slate-400 mt-20">
+        <div class="container mx-auto px-4 py-6 text-center">
+            <p>&copy; <span id="copyright-year"></span> Dinas Komunikasi dan Informatika Provinsi Kalimantan Barat. Semua Hak Cipta Dilindungi.</p>
+        </div>
+    </footer>
+
+    <!-- News Modal -->
+    <div id="news-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div id="modal-backdrop" class="modal-backdrop fixed inset-0 bg-black bg-opacity-50"></div>
+        <div id="modal-panel" class="modal-panel bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col transform scale-95 opacity-0">
+            <div class="flex justify-between items-center p-6 border-b border-slate-200">
+                <h3 id="modal-title" class="text-2xl font-bold text-slate-900"></h3>
+                <button id="modal-close-btn" class="text-slate-500 hover:text-slate-800">
+                    <i class="fa-solid fa-times fa-xl"></i>
+                </button>
+            </div>
+            <div id="modal-content" class="p-6 overflow-y-auto text-slate-700 leading-relaxed">
+            </div>
+        </div>
+    </div>
+
+    <!-- Indicator Detail Modal -->
+    <div id="indicator-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div id="indicator-modal-backdrop" class="modal-backdrop fixed inset-0 bg-black bg-opacity-50"></div>
+        <div id="indicator-modal-panel" class="modal-panel bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform scale-95 opacity-0">
+            <div class="flex justify-between items-center p-6 border-b border-slate-200">
+                <h3 id="indicator-modal-title" class="text-2xl font-bold text-slate-900"></h3>
+                <button id="indicator-modal-close-btn" class="text-slate-500 hover:text-slate-800">
+                    <i class="fa-solid fa-times fa-xl"></i>
+                </button>
+            </div>
+            <div id="indicator-modal-content" class="p-6 overflow-y-auto text-slate-700 leading-relaxed">
+            </div>
+        </div>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const mainHeader = document.getElementById('main-header');
+    const navLinks = document.querySelectorAll('.nav-link, #mobile-menu a');
+    const sections = document.querySelectorAll('.content-section');
+    const menuToggle = document.getElementById('menu-toggle');
+    const mobileMenu = document.getElementById('mobile-menu');
+    const searchInput = document.getElementById('global-search');
+    const copyrightYear = document.getElementById('copyright-year');
+    
+    const newsModal = document.getElementById('news-modal');
+    const modalBackdrop = document.getElementById('modal-backdrop');
+    const modalPanel = document.getElementById('modal-panel');
+    const modalTitle = document.getElementById('modal-title');
+    const modalContent = document.getElementById('modal-content');
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+
+    const indicatorModal = document.getElementById('indicator-modal');
+    const indicatorModalBackdrop = document.getElementById('indicator-modal-backdrop');
+    const indicatorModalPanel = document.getElementById('indicator-modal-panel');
+    const indicatorModalTitle = document.getElementById('indicator-modal-title');
+    const indicatorModalContent = document.getElementById('indicator-modal-content');
+    const indicatorModalCloseBtn = document.getElementById('indicator-modal-close-btn');
+
+    if (copyrightYear) {
+        copyrightYear.textContent = new Date().getFullYear();
+    }
+    
+    const newsData = [
+        {
+            title: "KemenPANRB Rilis Hasil Evaluasi SPBE 2024",
+            summary: "Laporan menunjukkan peningkatan indeks nasional sebesar 5% dari tahun sebelumnya.",
+            icon: "fa-solid fa-bullhorn",
+            color: "text-indigo-500",
+            fullContent: `<p class="mb-4">JAKARTA – Kementerian Pendayagunaan Aparatur Negara dan Reformasi Birokrasi (PANRB) secara resmi telah merilis Laporan Hasil Evaluasi (LHE) SPBE untuk tahun 2024. Hasil evaluasi ini mencakup 621 Instansi Pusat dan Pemerintah Daerah (IPPD) di seluruh Indonesia.</p>
+                         <p class="mb-4">Dalam laporan tersebut, Indeks SPBE Nasional tahun 2024 mencapai angka 2.78 dari skala 5, menunjukkan peningkatan sebesar 5% dibandingkan tahun 2023. Peningkatan ini didorong oleh penguatan kebijakan di tingkat pusat dan peningkatan kapabilitas manajemen TIK di berbagai daerah.</p>
+                         <p>Menteri PANRB, Abdullah Azwar Anas, menyatakan bahwa fokus ke depan adalah pada penguatan layanan publik yang terintegrasi dan interoperabel, sejalan dengan peluncuran GovTech Indonesia.</p>`
+        },
+        {
+            title: "GovTech Indonesia 'INA Digital' Diluncurkan",
+            summary: "Unit GovTech 'INA Digital' resmi diluncurkan untuk mengakselerasi aplikasi umum SPBE.",
+            icon: "fa-solid fa-rocket",
+            color: "text-emerald-500",
+            fullContent: `<p class="mb-4">Presiden Joko Widodo secara resmi meluncurkan GovTech Indonesia yang diberi nama 'INA Digital'. Unit ini berada di bawah Perum Peruri dan bertugas untuk mengakselerasi transformasi digital pemerintah melalui pembangunan aplikasi umum yang terintegrasi.</p>
+                         <p class="mb-4">Beberapa layanan prioritas yang akan diintegrasikan antara lain adalah layanan pendidikan, kesehatan, bantuan sosial, serta identitas digital. Dengan adanya INA Digital, diharapkan tidak ada lagi pembangunan aplikasi baru yang bersifat sektoral dan tumpang tindih di setiap kementerian/lembaga.</p>
+                         <p>'Kita harus menghentikan praktik membuat aplikasi baru di setiap pergantian pejabat. INA Digital akan menjadi tulang punggung bagi layanan digital pemerintah yang efisien dan berorientasi pada masyarakat,' ujar Presiden.</p>`
+        },
+        {
+            title: "Pusat Data Nasional (PDN) Tahap 1 Siap Beroperasi",
+            summary: "PDN sementara di Cikarang siap mendukung integrasi data layanan pemerintah.",
+            icon: "fa-solid fa-server",
+            color: "text-sky-500",
+            fullContent: `<p class="mb-4">Pemerintah melalui Kementerian Komunikasi dan Informatika mengumumkan bahwa Pusat Data Nasional (PDN) Sementara yang berlokasi di Cikarang, Jawa Barat, telah siap untuk beroperasi. PDN ini akan menjadi infrastruktur krusial dalam mendukung kebijakan Satu Data Indonesia dan interoperabilitas layanan SPBE.</p>
+                         <p class="mb-4">PDN Sementara ini memiliki kapasitas 1.000 core prosesor dan 40 Petabyte penyimpanan yang akan digunakan untuk mengkonsolidasikan data dari berbagai instansi pemerintah. Langkah ini diharapkan dapat meningkatkan efisiensi anggaran infrastruktur TIK dan memperkuat keamanan data pemerintah.</p>
+                         <p>Pembangunan PDN permanen di empat lokasi strategis lainnya terus berjalan dan ditargetkan selesai secara bertahap mulai tahun 2026.</p>`
+        }
+    ];
+    
+    const newsContainer = document.getElementById('news-container');
+    if (newsContainer) {
+        newsData.forEach((news, index) => {
+            const newsCard = `
+                <div class="bg-white p-6 rounded-2xl shadow-lg border border-transparent hover:border-indigo-500 hover:-translate-y-2 transition-all duration-300 text-left">
+                    <i class="${news.icon} fa-2x ${news.color} mb-4"></i>
+                    <h4 class="font-bold text-xl text-slate-800 mb-2">${news.title}</h4>
+                    <p class="text-slate-600 mb-4">${news.summary}</p>
+                    <a href="#" class="font-semibold text-blue-600 hover:underline read-more-btn" data-news-id="${index}">Baca lebih lanjut &rarr;</a>
+                </div>
+            `;
+            newsContainer.innerHTML += newsCard;
+        });
+    }
+
+    const downloadsData = [
+        { title: 'Perpres No. 95 Tahun 2018', description: 'Tentang Sistem Pemerintahan Berbasis Elektronik.', link: '#' },
+        { title: 'Pergub No. 27 Tahun 2024', description: 'Tentang SPBE Provinsi Kalimantan Barat.', link: '#' },
+        { title: 'KEPGUB Peta Rencana SPBE', description: 'Dokumen Peta Rencana SPBE 2025-2029.', link: '#' },
+        { title: 'Laporan Evaluasi SPBE 2024', description: 'Hasil evaluasi SPBE Provinsi Kalimantan Barat.', link: '#' }
+    ];
+
+    const downloadsContainer = document.getElementById('downloads-container');
+    if (downloadsContainer) {
+        downloadsData.forEach(doc => {
+            const docHtml = `
+                <div class="bg-slate-50 p-6 rounded-xl border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow">
+                    <i class="fa-solid fa-file-pdf fa-2x text-red-500"></i>
+                    <div>
+                        <h4 class="font-bold text-lg text-slate-800">${doc.title}</h4>
+                        <p class="text-slate-600 text-sm mb-2">${doc.description}</p>
+                        <a href="${doc.link}" class="font-semibold text-blue-600 hover:underline text-sm">Unduh Dokumen <i class="fa-solid fa-download fa-xs"></i></a>
+                    </div>
+                </div>
+            `;
+            downloadsContainer.innerHTML += docHtml;
+        });
+    }
+    
+    const timelineData = [
+      { year: '2025', uic: 'Tim Koordinasi SPBE', activity: 'Reviu & Tindak Lanjut Kebijakan; Penyusunan Arsitektur & Peta Rencana To-Be.' },
+      { year: '2025', uic: 'Inspektorat, Diskominfo', activity: 'Menyusun pedoman & memulai Audit Internal SPBE (Infrastruktur, Aplikasi, Keamanan).' },
+      { year: '2026', uic: 'BPSDM, BKD, Diskominfo', activity: 'Menyusun pedoman & perencanaan Manajemen SDM, Aset TIK, Risiko, dan Pengetahuan.' },
+      { year: '2026', uic: 'Diskominfo & OPD Terkait', activity: 'Pengembangan Portal Layanan Publik dan Portal Administrasi Pemerintahan terintegrasi.' }
+    ];
+
+    const timelineContainer = document.getElementById('timeline-container');
+    if(timelineContainer){
+      timelineData.forEach(item => {
+        const itemHtml = `
+          <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 flex items-start gap-4">
+            <div class="font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-md">${item.year}</div>
+            <div>
+              <h5 class="font-semibold text-slate-800">${item.activity}</h5>
+              <p class="text-sm text-slate-500">Penanggung Jawab: ${item.uic}</p>
+            </div>
+          </div>
+        `;
+        timelineContainer.innerHTML += itemHtml;
+      });
+    }
+
+    const indicatorData = [
+        { no: 1, name: "Kebijakan Internal Arsitektur SPBE", score: 5, uic: "Biro Organisasi, Diskominfo, Biro Hukum", goal: "Memastikan adanya kebijakan yang mengatur penyusunan, penerapan, dan reviu Arsitektur SPBE secara terpadu.", levels: [ {l:3, d:"Memiliki Pergub/Kepgub tentang Arsitektur SPBE yang memuat 6 domain."}, {l:4, d:"Kebijakan tersebut juga mengatur integrasi Arsitektur SPBE dengan pemerintah pusat/daerah lain dan dilakukan reviu secara periodik."}, {l:5, d:"Hasil reviu dan evaluasi ditindaklanjuti dengan kebijakan baru atau penyempurnaan."} ] },
+        { no: 2, name: "Kebijakan Internal Peta Rencana SPBE", score: 5, uic: "Diskominfo, Bappeda, Biro Hukum", goal: "Memastikan adanya kebijakan yang mengatur penyusunan dan pelaksanaan Peta Rencana SPBE sebagai dokumen strategis.", levels: [ {l:3, d:"Memiliki Kepgub tentang Peta Rencana SPBE yang memuat seluruh program kerja SPBE."}, {l:4, d:"Kebijakan tersebut mengatur keselarasan Peta Rencana Daerah dengan Peta Rencana Nasional dan dilakukan reviu periodik."}, {l:5, d:"Hasil reviu ditindaklanjuti dengan pemutakhiran Peta Rencana untuk periode berikutnya."} ] },
+        { no: 3, name: "Kebijakan Internal Manajemen Data", score: 4, uic: "Bappeda, Diskominfo", goal: "Memastikan adanya kebijakan yang mengatur tata kelola data untuk mendukung prinsip Satu Data Indonesia.", levels: [ {l:4, d:"Memiliki kebijakan (Pergub/Kepgub) yang mengatur seluruh rangkaian proses pengelolaan data dan diterapkan di semua OPD."}, {l:5, d:"Kebijakan tersebut dievaluasi secara berkala dan hasilnya ditindaklanjuti untuk perbaikan."} ] },
+        { no: 4, name: "Kebijakan Internal Pembangunan Aplikasi SPBE", score: 5, uic: "Diskominfo, Biro Hukum", goal: "Memastikan adanya kebijakan yang mengatur siklus hidup pembangunan aplikasi secara terpadu.", levels: [ {l:5, d:"Kebijakan telah dievaluasi dan ditindaklanjuti untuk perbaikan berkelanjutan."} ] },
+        { no: 5, name: "Kebijakan Internal Layanan Pusat Data", score: 5, uic: "Diskominfo, Biro Hukum", goal: "Memastikan adanya kebijakan yang mengatur penyelenggaraan Pusat Data yang andal dan terintegrasi.", levels: [ {l:5, d:"Kebijakan telah dievaluasi dan ditindaklanjuti untuk perbaikan berkelanjutan."} ] },
+        { no: 6, name: "Kebijakan Internal Layanan Jaringan Intra", score: 4, uic: "Diskominfo, Biro Hukum", goal: "Memastikan adanya kebijakan untuk Jaringan Intra Pemerintah yang aman dan terhubung.", levels: [ {l:4, d:"Kebijakan mengatur interkoneksi dengan Jaringan Intra nasional/daerah lain dan direviu secara periodik."}, {l:5, d:"Hasil reviu ditindaklanjuti dengan perbaikan kebijakan."} ] },
+        { no: 7, name: "Kebijakan Internal Penggunaan Sistem Penghubung", score: 5, uic: "Diskominfo, Biro Hukum", goal: "Memastikan adanya kebijakan untuk Sistem Penghubung Layanan (SPL) yang memfasilitasi interoperabilitas.", levels: [ {l:5, d:"Kebijakan telah dievaluasi dan ditindaklanjuti untuk perbaikan berkelanjutan."} ] },
+        { no: 8, name: "Kebijakan Internal Manajemen Keamanan Informasi", score: 5, uic: "Diskominfo, Biro Hukum", goal: "Memastikan adanya kebijakan yang mengatur Manajemen Keamanan Informasi secara komprehensif.", levels: [ {l:5, d:"Kebijakan telah dievaluasi dan ditindaklanjuti untuk perbaikan berkelanjutan."} ] },
+        { no: 9, name: "Kebijakan Internal Audit TIK", score: 5, uic: "Diskominfo, Biro Hukum, Inspektorat", goal: "Memastikan adanya kebijakan yang mewajibkan pelaksanaan Audit TIK secara berkala.", levels: [ {l:5, d:"Kebijakan telah dievaluasi dan ditindaklanjuti untuk perbaikan berkelanjutan."} ] },
+        { no: 10, name: "Kebijakan Internal Tim Koordinasi SPBE", score: 4, uic: "Biro Organisasi, Biro Hukum, Diskominfo", goal: "Memastikan adanya kebijakan yang menetapkan Tim Koordinasi SPBE beserta tugas dan fungsinya.", levels: [ {l:4, d:"Kebijakan mengatur tugas dan fungsi tim secara lengkap dan direviu secara periodik."}, {l:5, d:"Hasil reviu ditindaklanjuti dengan perbaikan kebijakan."} ] },
+        { no: 11, name: "Arsitektur SPBE Instansi", score: 3, uic: "Biro Organisasi, Diskominfo", goal: "Mengukur sejauh mana dokumen Arsitektur SPBE telah disusun, didokumentasikan, dan diterapkan.", levels: [ {l:3, d:"Dokumen Arsitektur SPBE telah mencakup seluruh domain dan ditetapkan melalui SK Gubernur."}, {l:4, d:"Arsitektur SPBE telah diimplementasikan secara konsisten dan dilakukan reviu periodik untuk dievaluasi."}, {l:5, d:"Hasil reviu ditindaklanjuti dengan pemutakhiran dokumen Arsitektur SPBE (To-Be)."} ] },
+        { no: 12, name: "Peta Rencana SPBE Instansi", score: 1, uic: "Diskominfo, Bappeda", goal: "Mengukur sejauh mana dokumen Peta Rencana SPBE telah disusun dan menjadi acuan dalam perencanaan dan penganggaran.", levels: [ {l:1, d:"Dokumen Peta Rencana SPBE belum ada atau belum sesuai standar."}, {l:2, d:"Dokumen Peta Rencana SPBE sudah ada namun belum memuat semua program kerja."}, {l:3, d:"Dokumen Peta Rencana SPBE telah lengkap dan ditetapkan melalui SK Gubernur."}, {l:4, d:"Peta Rencana SPBE diterapkan secara konsisten dalam RKA OPD dan direviu secara periodik."} ] },
+        { no: 13, name: "Keterpaduan Rencana dan Anggaran SPBE", score: 3, uic: "Bappeda, Diskominfo, Seluruh OPD", goal: "Memastikan perencanaan dan penganggaran SPBE di setiap OPD selaras dengan Peta Rencana SPBE.", levels: [ {l:3, d:"Seluruh Rencana dan Anggaran SPBE pada OPD dikonsultasikan kepada Diskominfo."}, {l:4, d:"Rencana dan Anggaran SPBE terpadu dan dikendalikan oleh Bappeda, serta direviu secara periodik."}, {l:5, d:"Hasil reviu ditindaklanjuti dengan revisi anggaran untuk tahun berikutnya."} ] },
+        { no: 14, name: "Inovasi Proses Bisnis SPBE", score: 3, uic: "Biro Organisasi, Seluruh OPD", goal: "Mendorong adanya penyederhanaan dan perbaikan proses bisnis melalui pemanfaatan TIK.", levels: [ {l:3, d:"Inovasi proses bisnis telah diterapkan dan didokumentasikan."}, {l:4, d:"Inovasi telah diterapkan ke dalam sistem elektronik dan direviu secara periodik."}, {l:5, d:"Hasil reviu ditindaklanjuti dengan perbaikan inovasi proses bisnis."} ] },
+        { no: 15, name: "Pembangunan Aplikasi SPBE", score: 4, uic: "Diskominfo, Seluruh OPD", goal: "Memastikan pembangunan aplikasi SPBE terpadu, terkendali, dan sesuai dengan Arsitektur SPBE.", levels: [ {l:4, d:"Pembangunan aplikasi terpadu, dikendalikan oleh Diskominfo, dan direviu secara periodik."}, {l:5, d:"Aplikasi dikembangkan secara optimal sebagai tindak lanjut hasil reviu."} ] },
+        { no: 16, name: "Layanan Pusat Data", score: 5, uic: "Diskominfo", goal: "Mengukur tingkat pemanfaatan dan pengelolaan Pusat Data yang terpusat dan andal.", levels: [ {l:5, d:"Hasil reviu dan evaluasi penggunaan Layanan Pusat Data telah ditindaklanjuti dengan perbaikan."} ] },
+        { no: 17, name: "Layanan Jaringan Intra Instansi", score: 4, uic: "Diskominfo", goal: "Mengukur tingkat pemanfaatan Jaringan Intra Pemerintah yang aman dan terintegrasi.", levels: [ {l:4, d:"Terdapat interkoneksi dengan Jaringan Intra nasional/daerah lain dan direviu secara periodik."}, {l:5, d:"Hasil reviu ditindaklanjuti dengan perbaikan layanan jaringan."} ] },
+        { no: 18, name: "Penggunaan Sistem Penghubung Layanan", score: 4, uic: "Diskominfo", goal: "Mengukur pemanfaatan Sistem Penghubung Layanan (SPL) untuk integrasi layanan.", levels: [ {l:4, d:"SPL Daerah terintegrasi dengan SPL Pusat/Daerah lain dan direviu secara periodik."}, {l:5, d:"Hasil reviu ditindaklanjuti dengan perbaikan SPL."} ] },
+        { no: 19, name: "Pelaksanaan Tim Koordinasi SPBE", score: 5, uic: "Tim Koordinasi SPBE", goal: "Mengukur efektivitas pelaksanaan tugas dan program kerja Tim Koordinasi SPBE.", levels: [ {l:5, d:"Hasil reviu dan evaluasi program kerja telah ditindaklanjuti melalui perbaikan."} ] },
+        { no: 20, name: "Kolaborasi Penerapan SPBE", score: 3, uic: "Tim Koordinasi SPBE", goal: "Mengukur tingkat kolaborasi dalam penerapan SPBE, baik internal maupun eksternal.", levels: [ {l:3, d:"Kolaborasi telah dilaksanakan secara terpadu di beberapa OPD."}, {l:4, d:"Kolaborasi dilaksanakan di seluruh OPD dan dikoordinasikan oleh Sekda, serta direviu secara periodik."}, {l:5, d:"Hasil reviu ditindaklanjuti melalui perbaikan pelaksanaan kolaborasi."} ] },
+        { no: 21, name: "Penerapan Manajemen Risiko SPBE", score: 1, uic: "Inspektorat, Diskominfo", goal: "Memastikan risiko-risiko dalam penerapan SPBE diidentifikasi, dianalisis, dan dikendalikan secara sistematis.", levels: [ {l:1, d:"Penerapan belum terencana dan bersifat reaktif (ad-hoc)."}, {l:2, d:"Telah ada pedoman internal mengenai Manajemen Risiko SPBE."}, {l:3, d:"Manajemen Risiko diterapkan di seluruh OPD sesuai pedoman dan didokumentasikan."}, {l:4, d:"Penerapan dikoordinasikan oleh Tim Koordinasi SPBE, dan dilakukan reviu secara periodik."}, {l:5, d:"Hasil reviu ditindaklanjuti untuk perbaikan proses secara berkelanjutan."} ] },
+        { no: 22, name: "Penerapan Manajemen Keamanan Informasi", score: 1, uic: "Diskominfo", goal: "Memastikan keamanan informasi SPBE dikelola secara sistematis.", levels: [ {l:1, d:"Penerapan belum terencana."}, {l:2, d:"Ada pedoman internal."}, {l:3, d:"Diterapkan di seluruh OPD."}, {l:4, d:"Dikoordinasikan dan direviu."}, {l:5, d:"Hasil reviu ditindaklanjuti."} ] },
+        { no: 23, name: "Penerapan Manajemen Data", score: 1, uic: "Bappeda, Diskominfo", goal: "Memastikan data dikelola dengan baik untuk mendukung Satu Data Indonesia.", levels: [ {l:1, d:"Penerapan belum terencana."}, {l:2, d:"Ada pedoman internal."}, {l:3, d:"Diterapkan di seluruh OPD."}, {l:4, d:"Dikoordinasikan dan direviu."}, {l:5, d:"Hasil reviu ditindaklanjuti."} ] },
+        { no: 24, name: "Penerapan Manajemen Aset TIK", score: 1, uic: "Diskominfo, BPKAD", goal: "Memastikan aset TIK dikelola secara efisien dari perencanaan hingga penghapusan.", levels: [ {l:1, d:"Penerapan belum terencana."}, {l:2, d:"Ada pedoman internal."}, {l:3, d:"Diterapkan di seluruh OPD."}, {l:4, d:"Dikoordinasikan dan direviu."}, {l:5, d:"Hasil reviu ditindaklanjuti."} ] },
+        { no: 25, name: "Penerapan Kompetensi SDM", score: 1, uic: "BPSDM, BKD, Diskominfo", goal: "Memastikan SDM pelaksana SPBE memiliki kompetensi yang sesuai.", levels: [ {l:1, d:"Penerapan belum terencana."}, {l:2, d:"Ada pedoman internal."}, {l:3, d:"Diterapkan di seluruh OPD."}, {l:4, d:"Dikoordinasikan dan direviu."}, {l:5, d:"Hasil reviu ditindaklanjuti."} ] },
+        { no: 26, name: "Penerapan Manajemen Pengetahuan", score: 1, uic: "BPSDM, Diskominfo", goal: "Memastikan pengetahuan terkait SPBE dikelola dan dibagikan secara efektif.", levels: [ {l:1, d:"Penerapan belum terencana."}, {l:2, d:"Ada pedoman internal."}, {l:3, d:"Diterapkan di seluruh OPD."}, {l:4, d:"Dikoordinasikan dan direviu."}, {l:5, d:"Hasil reviu ditindaklanjuti."} ] },
+        { no: 27, name: "Penerapan Manajemen Perubahan", score: 1, uic: "Diskominfo, Biro Organisasi", goal: "Memastikan setiap perubahan dalam SPBE dikelola dengan baik untuk meminimalkan resistensi.", levels: [ {l:1, d:"Penerapan belum terencana."}, {l:2, d:"Ada pedoman internal."}, {l:3, d:"Diterapkan di seluruh OPD."}, {l:4, d:"Dikoordinasikan dan direviu."}, {l:5, d:"Hasil reviu ditindaklanjuti."} ] },
+        { no: 28, name: "Penerapan Manajemen Layanan SPBE", score: 1, uic: "Diskominfo, Biro Organisasi", goal: "Memastikan layanan SPBE dikelola dengan standar kualitas yang jelas.", levels: [ {l:1, d:"Penerapan belum terencana."}, {l:2, d:"Ada pedoman internal."}, {l:3, d:"Diterapkan di seluruh OPD."}, {l:4, d:"Dikoordinasikan dan direviu."}, {l:5, d:"Hasil reviu ditindaklanjuti."} ] },
+        { no: 29, name: "Pelaksanaan Audit Infrastruktur SPBE", score: 1, uic: "Inspektorat, Diskominfo", goal: "Memastikan infrastruktur SPBE diaudit secara berkala.", levels: [ {l:1, d:"Audit dilaksanakan tanpa perencanaan."}, {l:2, d:"Audit direncanakan dalam Peta Rencana SPBE."}, {l:3, d:"Audit dilaksanakan secara periodik oleh Tim Auditor Internal."}, {l:4, d:"Audit dilaksanakan oleh auditor eksternal yang terakreditasi."}, {l:5, d:"Hasil audit ditindaklanjuti melalui perbaikan konkret."} ] },
+        { no: 30, name: "Pelaksanaan Audit Aplikasi SPBE", score: 1, uic: "Inspektorat, Diskominfo", goal: "Memastikan aplikasi SPBE diaudit secara berkala.", levels: [ {l:1, d:"Audit dilaksanakan tanpa perencanaan."}, {l:2, d:"Audit direncanakan."}, {l:3, d:"Audit oleh Tim Internal."}, {l:4, d:"Audit oleh eksternal terakreditasi."}, {l:5, d:"Hasil audit ditindaklanjuti."} ] },
+        { no: 31, name: "Pelaksanaan Audit Keamanan SPBE", score: 1, uic: "Inspektorat, Diskominfo", goal: "Memastikan keamanan SPBE diaudit secara berkala.", levels: [ {l:1, d:"Audit dilaksanakan tanpa perencanaan."}, {l:2, d:"Audit direncanakan."}, {l:3, d:"Audit oleh Tim Internal."}, {l:4, d:"Audit oleh eksternal terakreditasi."}, {l:5, d:"Hasil audit ditindaklanjuti."} ] },
+        { no: 32, name: "Layanan Perencanaan", score: 5, uic: "Bappeda", goal: "Mengukur kualitas layanan perencanaan berbasis elektronik.", levels: [ {l:5, d:"Layanan telah dioptimalkan berdasarkan hasil reviu dan evaluasi."} ] },
+        { no: 33, name: "Layanan Penganggaran", score: 4, uic: "BPKAD", goal: "Mengukur kualitas layanan penganggaran berbasis elektronik.", levels: [ {l:4, d:"Layanan telah terintegrasi dengan layanan SPBE lain."}, {l:5, d:"Layanan dioptimalkan berdasarkan hasil reviu."} ] },
+        { no: 34, name: "Layanan Keuangan", score: 4, uic: "BPKAD", goal: "Mengukur kualitas layanan keuangan berbasis elektronik.", levels: [ {l:4, d:"Layanan telah terintegrasi."}, {l:5, d:"Layanan dioptimalkan."} ] },
+        { no: 35, name: "Layanan Pengadaan Barang dan Jasa", score: 4, uic: "Biro PBJ", goal: "Mengukur kualitas layanan pengadaan secara elektronik.", levels: [ {l:4, d:"Layanan telah terintegrasi."}, {l:5, d:"Layanan dioptimalkan."} ] },
+        { no: 36, name: "Layanan Kepegawaian", score: 5, uic: "BKD, BPSDM", goal: "Mengukur kualitas layanan kepegawaian berbasis elektronik.", levels: [ {l:5, d:"Layanan telah dioptimalkan."} ] },
+        { no: 37, name: "Layanan Kearsipan Dinamis", score: 4, uic: "Dinas Perpustakaan dan Kearsipan", goal: "Mengukur kualitas layanan kearsipan dinamis secara elektronik.", levels: [ {l:4, d:"Layanan telah terintegrasi."}, {l:5, d:"Layanan dioptimalkan."} ] },
+        { no: 38, name: "Layanan Pengelolaan Barang Milik Daerah", score: 3, uic: "BPKAD", goal: "Mengukur kualitas layanan pengelolaan aset daerah secara elektronik.", levels: [ {l:3, d:"Layanan bersifat transaksional."}, {l:4, d:"Layanan terintegrasi."}, {l:5, d:"Layanan dioptimalkan."} ] },
+        { no: 39, name: "Layanan Pengawasan Internal Pemerintah", score: 5, uic: "Inspektorat", goal: "Mengukur kualitas layanan pengawasan internal secara elektronik.", levels: [ {l:5, d:"Layanan telah dioptimalkan."} ] },
+        { no: 40, name: "Layanan Akuntabilitas Kinerja Organisasi", score: 5, uic: "Biro Organisasi", goal: "Mengukur kualitas layanan akuntabilitas kinerja (SAKIP) secara elektronik.", levels: [ {l:5, d:"Layanan telah dioptimalkan."} ] },
+        { no: 41, name: "Layanan Kinerja Pegawai", score: 5, uic: "BKD", goal: "Mengukur kualitas layanan pengelolaan kinerja pegawai secara elektronik.", levels: [ {l:5, d:"Layanan telah dioptimalkan."} ] },
+        { no: 42, name: "Layanan Pengaduan Pelayanan Publik", score: 4, uic: "Diskominfo, Biro Organisasi", goal: "Mengukur kualitas layanan pengaduan publik secara elektronik.", levels: [ {l:4, d:"Layanan telah terintegrasi."}, {l:5, d:"Layanan dioptimalkan."} ] },
+        { no: 43, name: "Layanan Data Terbuka", score: 4, uic: "Diskominfo", goal: "Mengukur kualitas portal data terbuka (Satu Data).", levels: [ {l:4, d:"Layanan telah terintegrasi."}, {l:5, d:"Layanan dioptimalkan."} ] },
+        { no: 44, name: "Layanan Jaringan Dokumentasi dan Informasi", score: 4, uic: "Biro Hukum", goal: "Mengukur kualitas layanan JDIH.", levels: [ {l:4, d:"Layanan telah terintegrasi."}, {l:5, d:"Layanan dioptimalkan."} ] },
+        { no: 45, name: "Layanan Publik Sektor 1", score: 4, uic: "OPD Terkait", goal: "Mengukur kualitas layanan publik sektoral prioritas.", levels: [ {l:4, d:"Layanan telah terintegrasi."}, {l:5, d:"Layanan dioptimalkan."} ] },
+        { no: 46, name: "Layanan Publik Sektor 2", score: 4, uic: "OPD Terkait", goal: "Mengukur kualitas layanan publik sektoral prioritas.", levels: [ {l:4, d:"Layanan telah terintegrasi."}, {l:5, d:"Layanan dioptimalkan."} ] },
+        { no: 47, name: "Layanan Publik Sektor 3", score: 4, uic: "OPD Terkait", goal: "Mengukur kualitas layanan publik sektoral prioritas.", levels: [ {l:4, d:"Layanan telah terintegrasi."}, {l:5, d:"Layanan dioptimalkan."} ] }
+    ];
+
+    const indicatorTableBody = document.querySelector('#indicator-table tbody');
+    if (indicatorTableBody) {
+        indicatorData.forEach((item, index) => {
+            const getScoreColor = (score) => {
+                if (score <= 2) return 'bg-red-100 text-red-700';
+                if (score <= 4) return 'bg-yellow-100 text-yellow-700';
+                return 'bg-green-100 text-green-700';
+            };
+            const scoreBadge = `<span class="font-bold px-2 py-1 rounded-full text-xs ${getScoreColor(item.score)}">${item.score} / 5</span>`;
+            const row = `
+                <tr class="clickable-indicator searchable-item" data-indicator-id="${index}">
+                    <td>${item.no}</td>
+                    <td>${item.name}</td>
+                    <td>${scoreBadge}</td>
+                </tr>
+            `;
+            indicatorTableBody.innerHTML += row;
+        });
+    }
+
+
+    function handleScroll() {
+        if (window.scrollY > 50) {
+            mainHeader.classList.add('header-scrolled');
+        } else {
+            mainHeader.classList.remove('header-scrolled');
+        }
+    }
+
+    function setActiveLink() {
+        let current = 'beranda';
+        sections.forEach(section => {
+            const sectionTop = section.offsetTop;
+            if (pageYOffset >= sectionTop - 120) {
+                current = section.getAttribute('id');
+            }
+        });
+
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href').substring(1) === current) {
+                link.classList.add('active');
+            }
+        });
+    }
+
+    navLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.querySelector(this.getAttribute('href')).scrollIntoView({
+                behavior: 'smooth'
+            });
+            if (!mobileMenu.classList.contains('hidden')) {
+                mobileMenu.classList.add('hidden');
+            }
+        });
+    });
+
+    window.addEventListener('scroll', () => {
+        handleScroll();
+        setActiveLink();
+    });
+    setActiveLink();
+    handleScroll();
+
+    menuToggle.addEventListener('click', () => {
+        mobileMenu.classList.toggle('hidden');
+    });
+
+    const docCardToggles = document.querySelectorAll('.doc-card-toggle');
+    docCardToggles.forEach(toggle => {
+        toggle.addEventListener('click', () => {
+            const content = toggle.nextElementSibling;
+            const icon = toggle.querySelector('i');
+            if (content.style.maxHeight) {
+                content.style.maxHeight = null;
+                icon.classList.remove('rotate-180');
+            } else {
+                content.style.maxHeight = content.scrollHeight + "px";
+                icon.classList.add('rotate-180');
+            }
+        });
+    });
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase().trim();
+            document.querySelectorAll('.searchable-item').forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.classList.toggle('search-hidden', !text.includes(query));
+            });
+        });
+    }
+    
+    function openModal(newsId) {
+        const news = newsData[newsId];
+        modalTitle.textContent = news.title;
+        modalContent.innerHTML = news.fullContent;
+        newsModal.classList.remove('hidden');
+        setTimeout(() => {
+            modalBackdrop.classList.remove('opacity-0');
+            modalPanel.classList.remove('scale-95', 'opacity-0');
+        }, 10);
+    }
+
+    function closeModal() {
+        modalBackdrop.classList.add('opacity-0');
+        modalPanel.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            newsModal.classList.add('hidden');
+        }, 300);
+    }
+
+    document.querySelectorAll('.read-more-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const newsId = this.dataset.newsId;
+            openModal(newsId);
+        });
+    });
+
+    if (modalCloseBtn) {
+        modalCloseBtn.addEventListener('click', closeModal);
+    }
+    if (modalBackdrop) {
+        modalBackdrop.addEventListener('click', closeModal);
+    }
+
+    function openIndicatorModal(indicatorId) {
+        const indicator = indicatorData[indicatorId];
+        indicatorModalTitle.textContent = `Indikator ${indicator.no}: ${indicator.name}`;
+        
+        let levelsHtml;
+
+        if (indicator.score === 5) {
+            const currentLevel = indicator.levels.find(l => l.l === 5);
+            levelsHtml = `
+                <div class="level-item current">
+                    <h5 class="font-bold text-slate-800">Level 5 (Memuaskan)</h5>
+                    <p class="text-slate-600">${currentLevel ? currentLevel.d : 'Informasi level tidak tersedia.'}</p>
+                    <p class="mt-4 p-4 bg-green-50 text-green-700 rounded-lg">Selamat! Indikator ini telah mencapai level optimum. Fokus pada pemeliharaan dan perbaikan berkelanjutan.</p>
+                </div>
+            `;
+        } else {
+            const relevantLevels = indicator.levels.filter(level => level.l >= indicator.score);
+            levelsHtml = relevantLevels.map(level => `
+                <div class="level-item ${indicator.score === level.l ? 'current' : ''}">
+                    <h5 class="font-bold text-slate-800">Langkah ke Level ${level.l}</h5>
+                    <p class="text-slate-600">${level.d}</p>
+                </div>
+            `).join('');
+        }
+
+        indicatorModalContent.innerHTML = `
+            <div class="mb-6">
+                <h4 class="font-bold text-lg text-slate-800 mb-2">Tujuan Penilaian</h4>
+                <p>${indicator.goal}</p>
+            </div>
+            <div class="mb-6">
+                <h4 class="font-bold text-lg text-slate-800 mb-2">Penanggung Jawab (UIC)</h4>
+                <p>${indicator.uic}</p>
+            </div>
+            <div>
+                <h4 class="font-bold text-lg text-slate-800 mb-4">Langkah Strategis Peningkatan Nilai</h4>
+                <div class="level-path">${levelsHtml}</div>
+            </div>
+        `;
+        indicatorModal.classList.remove('hidden');
+        setTimeout(() => {
+            indicatorModalBackdrop.classList.remove('opacity-0');
+            indicatorModalPanel.classList.remove('scale-95', 'opacity-0');
+        }, 10);
+    }
+
+    function closeIndicatorModal() {
+        indicatorModalBackdrop.classList.add('opacity-0');
+        indicatorModalPanel.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            indicatorModal.classList.add('hidden');
+        }, 300);
+    }
+
+    document.querySelectorAll('.clickable-indicator').forEach(row => {
+        row.addEventListener('click', function() {
+            const indicatorId = this.dataset.indicatorId;
+            openIndicatorModal(indicatorId);
+        });
+    });
+    
+    if(indicatorModalCloseBtn) indicatorModalCloseBtn.addEventListener('click', closeIndicatorModal);
+    if(indicatorModalBackdrop) indicatorModalBackdrop.addEventListener('click', closeIndicatorModal);
+
+
+    function renderIndeksChart() {
+        const chartElement = document.getElementById('indeksSpbeChart');
+        if (!chartElement) return;
+        const ctx = chartElement.getContext('2d');
+        if (window.spbeChart instanceof Chart) {
+            window.spbeChart.destroy();
+        }
+        window.spbeChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Kebijakan', 'Tata Kelola', 'Manajemen', 'Layanan'],
+                datasets: [{
+                    label: 'Nilai Indeks SPBE 2024',
+                    data: [4.70, 3.50, 1.00, 4.24],
+                    backgroundColor: ['#3b82f6', '#8b5cf6', '#ef4444', '#10b981'],
+                    borderColor: ['#2563eb', '#7c3aed', '#dc2626', '#059669'],
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    barThickness: 50,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { 
+                    y: { 
+                        beginAtZero: true, 
+                        max: 5, 
+                        grid: { color: '#e2e8f0' },
+                        ticks: { color: '#64748b' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#64748b', font: { weight: '600' } }
+                    }
+                },
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        titleFont: { size: 16 },
+                        bodyFont: { size: 14 },
+                        padding: 12,
+                        cornerRadius: 8,
+                        displayColors: false
+                    }
+                }
+            }
+        });
+    }
+    
+    const observerOptions = { root: null, rootMargin: '0px', threshold: 0.1 };
+    
+    const chartElement = document.getElementById('indeksSpbeChart');
+    if (chartElement) {
+        const chartObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    renderIndeksChart();
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+        chartObserver.observe(chartElement);
+    }
+
+    const fadeObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('is-visible');
+            }
+        });
+    }, observerOptions);
+
+    document.querySelectorAll('.fade-in-section').forEach(section => {
+        fadeObserver.observe(section);
+    });
+});
+</script>
+
+</body>
+</html>
