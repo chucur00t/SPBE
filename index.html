@@ -429,6 +429,11 @@
         </div>
     </div>
 
+    <button id="back-to-top" aria-label="Kembali ke atas"
+        class="fixed bottom-6 right-6 z-40 p-3 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 hidden">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const mainHeader = document.getElementById('main-header');
@@ -452,9 +457,24 @@ document.addEventListener('DOMContentLoaded', function () {
     const indicatorModalTitle = document.getElementById('indicator-modal-title');
     const indicatorModalContent = document.getElementById('indicator-modal-content');
     const indicatorModalCloseBtn = document.getElementById('indicator-modal-close-btn');
+    const backToTopBtn = document.getElementById('back-to-top');
 
     if (copyrightYear) {
         copyrightYear.textContent = new Date().getFullYear();
+    }
+
+    if (backToTopBtn) {
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 300) {
+                backToTopBtn.classList.remove('hidden');
+            } else {
+                backToTopBtn.classList.add('hidden');
+            }
+        });
+
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
     }
     
     const newsData = [
